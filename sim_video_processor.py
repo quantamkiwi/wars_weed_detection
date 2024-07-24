@@ -33,10 +33,10 @@ light_green = (80,255, 255) #(255, 15, 255)
 
 # --------------------------------------------------
 
-left_crop = 0
-right_crop = 640
+left_crop = 100 #0
+right_crop = 540 #640
 top_crop = 0
-bottom_crop = 210
+bottom_crop =  400 # 210
 
 # Cropping parameters
 screen_width = right_crop - left_crop
@@ -45,6 +45,7 @@ screen_height = top_crop - bottom_crop
 # Sprayer sections
 spray_line_bottom = 20
 spray_line_top = 130
+spray_line_optimal = 90
 
 send_slow_speed = 0
 watchdog_frames = 0
@@ -85,7 +86,7 @@ while cap.isOpened():
     
     """2"""
 
-    # frame = frame[top_crop:bottom_crop,left_crop:right_crop] #Cropping, should comment this out to check for sim
+    frame = frame[top_crop:bottom_crop,left_crop:right_crop] #Cropping, should comment this out to check for sim
 
     print("framed")
 
@@ -143,20 +144,18 @@ while cap.isOpened():
         contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         number_of_sprays = 0
-        number_of_sprays_left = 0
-        number_of_sprays_right = 0
         
         for contour in contours:
 
-            area = cv2.contourArea(contour)
-            if area < 10:  # Set a lower bound on the elipse area.
-                continue
+            # area = cv2.contourArea(contour)
+            # if area < 10:  # Set a lower bound on the elipse area.
+            #     continue
 
-            if area > 10000:
-                continue
+            # if area > 10000:
+            #     continue
             
-            if len(contour) < 5:  # The fitEllipse function requires at least five points on the contour to function.
-                continue
+            # if len(contour) < 5:  # The fitEllipse function requires at least five points on the contour to function.
+            #     continue
 
             """7"""
                 
@@ -172,21 +171,14 @@ while cap.isOpened():
             cv2.circle(frame, (cX, cY), 7, (0, 255, 0), -1) # Draw circles idenitified by moments
 
             if spray_line_bottom  < cY < spray_line_top:
-                if area < 300:
+                if area > 100:
                     number_of_sprays = 1
-                elif 300 <= area < 500:
-                    number_of_sprays = 1
-                elif 500 <= area < 1000:
-                    number_of_sprays = 1
-                elif 1000 <= area < 5000:
-                    number_of_sprays = 1 #2
-                elif 5000 <= area < 8000:
-                    number_of_sprays = 1 #3
-                else:
-                    number_of_sprays = 1 #4
+
                 if cX < 240:
+
                     if abs(cX_old_left - cX) > WEED_THRESHOLD:
                         print("cX: {}, cX_old_left:{}".format(cX,cX_old_left))
+
                         cX_old_left = cX
                         xcord_deg_left = -math.degrees(math.atan(((cX-x_centre_left)*a)/150))
                         xcord_deg_right = 0
@@ -203,11 +195,12 @@ while cap.isOpened():
                         
                 input_array = [xcord_deg_left,0,number_of_sprays_left,xcord_deg_right,0,number_of_sprays_right]
 
-                if number_of_sprays_left > 0 or number_of_sprays_right > 0:
-                    # sprayer_msg.data = input_array
-                    # sprayer_input.publish(sprayer_msg)
-                    print("Sending this: ", input_array)
-                    print("Area of contour: ", area)
+                """PUBLISH DATA"""
+                # if number_of_sprays_left > 0 or number_of_sprays_right > 0:
+                #     # sprayer_msg.data = input_array
+                #     # sprayer_input.publish(sprayer_msg)
+                #     print("Sending this: ", input_array)
+                #     print("Area of contour: ", area)
         
         cv2.line(frame, (0, spray_line_top), (screen_width, spray_line_top), (0, 255, 0), 2)
         cv2.line(frame, (0, spray_line_bottom), (screen_width, spray_line_bottom), (0, 0, 255), 2)

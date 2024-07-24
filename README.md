@@ -13,6 +13,9 @@ Developing a new weed detection algorithm for WARS.
 - **`video_cutting.ipynb`**
   - This file is cuts the **first X seconds** off of the **start** of a video file. 
 
+- **`flick_through_frames.py`**
+  - This file flicks through frames at the push of a button. This is to **calibrate speed** (pixels per second) of the robot with respect to the camera.
+
 ## 📁 Folders
 
 - **`documents/`**
