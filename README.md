@@ -10,6 +10,9 @@ Developing a new weed detection algorithm for WARS.
 - **`sim_video_processor.py`**
   - This file is the **new** development video processor that runs videos to simulate a development environment.
 
+- **`video_cutting.ipynb`**
+  - This file is cuts the **first X seconds** off of the **start** of a video file. 
+
 ## 📁 Folders
 
 - **`documents/`**

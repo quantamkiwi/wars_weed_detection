@@ -6,8 +6,11 @@ WEED_THRESHOLD = 8
 dev_mode = True
 weed_cam_status = 0
 
+# Get document folder. 
+doc_folder = "test_content/"
+
 # Get Video
-cap = cv2.VideoCapture("test_vid_1.mp4")
+cap = cv2.VideoCapture(doc_folder + "test_vid_1.avi")
 
 # cap.set(3, 480)
 # cap.set(4,240)
