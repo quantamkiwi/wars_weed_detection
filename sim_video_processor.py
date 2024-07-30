@@ -147,15 +147,15 @@ while cap.isOpened():
         
         for contour in contours:
 
-            # area = cv2.contourArea(contour)
-            # if area < 10:  # Set a lower bound on the elipse area.
-            #     continue
+            area = cv2.contourArea(contour)
+            if area < 10:  # Set a lower bound on the elipse area.
+                continue
 
-            # if area > 10000:
-            #     continue
+            if area > 10000:
+                continue
             
-            # if len(contour) < 5:  # The fitEllipse function requires at least five points on the contour to function.
-            #     continue
+            if len(contour) < 5:  # The fitEllipse function requires at least five points on the contour to function.
+                continue
 
             """7"""
                 
