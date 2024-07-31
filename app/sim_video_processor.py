@@ -6,26 +6,44 @@ import numpy as np
 
 
 def load_config(config_file):
+    """
+    Loading in the JSON congiguration file. 
+    """
     with open(config_file, 'r') as file:
         return json.load(file)
 
 def parse_args():
+    """ 
+    Parsing the arguments in the JSON configuration file and returning an 
+    arg object. 
+    """
     parser = argparse.ArgumentParser(description='Weed detection system.')
     parser.add_argument('--config', type=str, default='app/config.json', help='Path to the configuration file')
     return parser.parse_args()
 
 
 def initialize_video_capture(video_path):
+    """ 
+    Initializing the video capture. 
+    -> Dev mode should be implemented here?
+    """
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise IOError(f"Cannot open video file {video_path}")
     return cap
 
 def process_frame(frame, config):
+    """ 
+    Performs the neccessary frame preprocessing. 
+    """
+    # Crop Frame
     frame = frame[config['top_crop']:config['bottom_crop'], config['left_crop']:config['right_crop']]
+
+    # Binary Threshold the frame based on the level of green.
     color = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(color, np.array(config['dark_green']), np.array(config['light_green']))
 
+    # Perfrom Morphology on the masked frame.
     dilated_connect = cv2.dilate(mask, None, iterations=3)
     eroded = cv2.erode(dilated_connect, None, iterations=4)
     dilated = cv2.dilate(eroded, None, iterations=5)
@@ -35,8 +53,13 @@ def process_frame(frame, config):
 
 
 class VideoProcessor:
+    """
+    Class to process a video input and find weeds to spray. 
+    """
 
     def __init__(self, cap, config):
+
+        # Create attributes out of function parameters
         self.cap = cap
         self.config = config
 
@@ -77,7 +100,11 @@ class VideoProcessor:
         print(cap.isOpened())
     
     def invalid_contour(self, contour, area):
-        if area < self.min_contour_area or area > self.max_contour_area or len(contour) < self.min_contour_points:  # Set a lower bound on the elipse area.
+        """ 
+        Checks that the contour area is within a certain range and
+        that the contour has more than 5 points. 
+        """
+        if area < self.min_contour_area or area > self.max_contour_area or len(contour) < self.min_contour_points:
             return True
         return False
 
