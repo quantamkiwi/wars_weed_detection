@@ -11,7 +11,7 @@ def load_config(config_file):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Weed detection system.')
-    parser.add_argument('--config', type=str, default='config.json', help='Path to the configuration file')
+    parser.add_argument('--config', type=str, default='app/config.json', help='Path to the configuration file')
     return parser.parse_args()
 
 
