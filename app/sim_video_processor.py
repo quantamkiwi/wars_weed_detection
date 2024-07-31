@@ -62,8 +62,17 @@ class VideoProcessor:
         # Create attributes out of function parameters
         self.cap = cap
         self.config = config
+        self.initialize_parameters()
+        
+        print(cap.isOpened())
 
         # --------------------------------------------------
+
+    def initialize_parameters(self):
+        """ 
+        Function to initialize all the neccessary parameters needed for the video
+        processor.
+        """
 
         # Cropping parameters
         self.screen_width = self.config['right_crop'] - self.config['left_crop']
@@ -96,131 +105,106 @@ class VideoProcessor:
         self.max_contour_area = 10000
         self.min_contour_points = 5
 
-
-        print(cap.isOpened())
-    
     def invalid_contour(self, contour, area):
-        """ 
-        Checks that the contour area is within a certain range and
-        that the contour has more than 5 points. 
-        """
-        if area < self.min_contour_area or area > self.max_contour_area or len(contour) < self.min_contour_points:
-            return True
-        return False
+        """Checks that the contour area is within a certain range and has more than 5 points."""
+        return area < self.min_contour_area or area > self.max_contour_area or len(contour) < self.min_contour_points
 
+    def find_and_draw_contours(self, frame, gray_frame):
+        """Finds contours and draws them on the frame."""
+        contours, _ = cv2.findContours(gray_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        number_of_sprays = 0
+
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            if self.invalid_contour(contour, area):
+                continue
+
+            ellipse = cv2.fitEllipse(contour)
+            cv2.ellipse(frame, ellipse, (0, 255, 0), 2)
+
+            moments = cv2.moments(contour)
+            cX = int(moments["m10"] / moments["m00"])
+            cY = int(moments["m01"] / moments["m00"])
+            cv2.circle(frame, (cX, cY), 7, (0, 255, 0), -1)
+
+            if self.config['spray_line_bottom'] < cY < self.config['spray_line_top']:
+                if area > 100:
+                    number_of_sprays = 1
+
+                self.update_spray_data(cX, cY, number_of_sprays)
+
+        self.draw_spray_lines(frame)
+        return frame
+
+    def draw_spray_lines(self, frame):
+        """Draws spray lines on the frame."""
+        cv2.line(frame, (0, self.config['spray_line_top']), (self.screen_width, self.config['spray_line_top']), (0, 255, 0), 2)
+        cv2.line(frame, (0, self.config['spray_line_bottom']), (self.screen_width, self.config['spray_line_bottom']), (0, 0, 255), 2)
+
+    
+    def update_spray_data(self, cX, cY, number_of_sprays):
+        """Updates spray data based on contour centroid."""
+        if cX < 240:
+            if abs(self.cX_old_left - cX) > self.config['weed_threshold']:
+                self.cX_old_left = cX
+                self.xcord_deg_left = -math.degrees(math.atan(((cX - self.config['x_centre_left']) * self.a) / 150))
+                self.xcord_deg_right = 0
+                self.number_of_sprays_left = number_of_sprays
+                self.number_of_sprays_right = 0
+        else:
+            if abs(self.cX_old_right - cX) > self.config['weed_threshold']:
+                self.cX_old_right = cX
+                self.xcord_deg_right = -math.degrees(math.atan(((cX - self.config['x_centre_right'] - 240) * self.a) / 150))
+                self.xcord_deg_left = 0
+                self.number_of_sprays_right = number_of_sprays
+                self.number_of_sprays_left = 0
+
+        self.input_array = [self.xcord_deg_left, 0, self.number_of_sprays_left, self.xcord_deg_right, 0, self.number_of_sprays_right]
+
+    def display_frame(self, frame):
+        """Displays the frame if in development mode."""
+        if self.config['dev_mode']:
+            cv2.namedWindow('Colour Segmentation', cv2.WINDOW_AUTOSIZE)
+            cv2.imshow('Colour Segmentation', frame)
+            if cv2.waitKey(100) & 0xFF == ord('q'):
+                return False
+        return True
+    
+    def cleanup(self):
+        """Releases the video capture and destroys all windows."""
+        self.cap.release()
+        cv2.destroyAllWindows()
 
     def loop(self):
 
         while self.cap.isOpened():
             print("frame")
-    
-
-            """1"""
 
             self.ret, self.frame = cap.read()  # Read a frame from the video file.
+    
             # If we cannot read any more frames from the video file, then exit.
-            print("opened frame")
             if not self.ret:
                 print("Broken")
                 break
-        
-            """2"""
+            print("opened frame")
 
-            self.frame, self.grey_frame = process_frame(self.frame, self.config) #Cropping, should comment this out to check for sim
-
+            self.frame, self.grey_frame = process_frame(self.frame, self.config) 
             print("framed")
 
-            if config['spray_system_enable']:
+            if self.config['spray_system_enable']:
                 print("sprayer")
+                self.frame = self.find_and_draw_contours(self.frame, self.grey_frame)
 
-                        
-
-            """6"""
-
-            # Now that we have hopefully distinguished the coins, find and fit ellipses around the coins in the image.
-            contours, _ = cv2.findContours(self.grey_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-            number_of_sprays = 0
-            
-            for contour in contours:
-                area = cv2.contourArea(contour)
-                if self.invalid_contour(contour, area):
-                    continue
-
-                    
-                # cv2.drawContours(self.frame, contours, -1, (0,0,255), 1)
-                ellipse = cv2.fitEllipse(contour)  # Fit an ellipse to the points in the contour.
-
-                cv2.ellipse(self.frame, ellipse, (0,255,0), 2)  # Draw the ellipse on the original image.
-                
-                # Use the moments of the contour to draw a dot at the centroid.
-                moments = cv2.moments(contour)
-                cX = int(moments["m10"] / moments["m00"])
-                cY = int(moments["m01"] / moments["m00"])
-                cv2.circle(self.frame, (cX, cY), 7, (0, 255, 0), -1) # Draw circles idenitified by moments
-
-                if self.config['spray_line_bottom']  < cY < self.config['spray_line_top']:
-                    if area > 100:
-                        number_of_sprays = 1
-
-                    if cX < 240:
-
-                        if abs(self.cX_old_left - cX) > config['weed_threshold']:
-                            print("cX: {}, cX_old_left:{}".format(cX,self.cX_old_left))
-
-                            self.cX_old_left = cX
-                            xcord_deg_left = -math.degrees(math.atan(((cX-self.config['x_centre_left'])*self.a)/150))
-                            xcord_deg_right = 0
-                            number_of_sprays_left = number_of_sprays
-                            number_of_sprays_right = 0
-                    else: 
-                        if abs(self.cX_old_right - cX) > config['weed_threshold']:
-                            print("cX: {}, cX_old_right:{}".format(cX,self.cX_old_right))
-                            self.cX_old_right = cX
-                            xcord_deg_right = -math.degrees(math.atan(((cX-self.config['x_centre_right']-240)*self.a)/150))
-                            xcord_deg_left = 0
-                            number_of_sprays_right = number_of_sprays
-                            number_of_sprays_left = 0
-                            
-                    input_array = [xcord_deg_left,0,number_of_sprays_left,xcord_deg_right,0,number_of_sprays_right]
-
-                    """PUBLISH DATA"""
-                    # if number_of_sprays_left > 0 or number_of_sprays_right > 0:
-                    #     # sprayer_msg.data = input_array
-                    #     # sprayer_input.publish(sprayer_msg)
-                    #     print("Sending this: ", input_array)
-                    #     print("Area of contour: ", area)
-            
-            cv2.line(self.frame, (0, self.config['spray_line_top']), (self.screen_width, self.config['spray_line_top']), (0, 255, 0), 2)
-            cv2.line(self.frame, (0, self.config['spray_line_bottom']), (self.screen_width, self.config['spray_line_bottom']), (0, 0, 255), 2)
-
-            # Write_image(image_pub, frame)
-            if (self.config['dev_mode']):
-                
-                # Show images
-                cv2.namedWindow('Colour Segmentation', cv2.WINDOW_AUTOSIZE)
-                # frame = cv2.resize(frame, (int(frame.shape[1]*3), int(frame.shape[0]*3))) #For display
-                cv2.imshow('Colour Segmentation', self.frame)
-
-                # cv2.imshow('Mask', mask)5
-                # cv2.imshow('Dilated Connect', dilated_connect)
-                # cv2.imshow('Eroded', eroded)
-                # cv2.imshow('dilated', dilated)
-
-            if cv2.waitKey(100) & 0xFF == ord('q'):
+            if not self.display_frame(self.frame):
                 break
         
         else:
             cv2.line(self.frame, (0, self.config['spray_line_top']), (self.screen_width, self.config['spray_line_top']), (0, 255, 0), 2)
             cv2.line(self.frame, (0, self.config['spray_line_bottom']), (self.screen_width, self.config['spray_line_bottom']), (0, 0, 255), 2)
 
-            # Write_image(image_pub, frame)
-
-        # Write_image(image_pub, frame)
         print("end of if")
 
-        self.cap.release()
-        cv2.destroyAllWindows()
+        self.cleanup()
 
 
 
