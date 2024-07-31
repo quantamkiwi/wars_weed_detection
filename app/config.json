@@ -1,0 +1,19 @@
+{
+    "spray_system_enable": true,
+    "weed_threshold": 8,
+    "dev_mode": true,
+    "doc_folder": "test_content/",
+    "video_file": "test_vid_1.avi",
+    "FPS": 7,
+    "dark_green": [40, 65, 100],
+    "light_green": [80, 255, 255],
+    "left_crop": 100,
+    "right_crop": 540,
+    "top_crop": 0,
+    "bottom_crop": 400,
+    "spray_line_bottom": 20,
+    "spray_line_top": 130,
+    "x_centre_left": 90,
+    "x_centre_right": 140,
+    "a": 0.99
+}
