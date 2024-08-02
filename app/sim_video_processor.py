@@ -4,6 +4,8 @@ import argparse
 import json
 import numpy as np
 
+from kalman_filter import WeedTracker
+
 
 def load_config(config_file):
     """
@@ -62,6 +64,7 @@ class VideoProcessor:
         # Create attributes out of function parameters
         self.cap = cap
         self.config = config
+        self.wt = WeedTracker()
         self.initialize_parameters()
         
         print(cap.isOpened())
@@ -114,24 +117,40 @@ class VideoProcessor:
         contours, _ = cv2.findContours(gray_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         number_of_sprays = 0
 
-        for contour in contours:
-            area = cv2.contourArea(contour)
-            if self.invalid_contour(contour, area):
-                continue
+        self.wt.process_new_contours(contours)
+        self.wt.predict_new_contours()
 
-            ellipse = cv2.fitEllipse(contour)
-            cv2.ellipse(frame, ellipse, (0, 255, 0), 2)
+        n_new = len(self.wt.current_weeds[0])
+        # print(self.wt.current_weeds)
+        i = 0
+
+        for contour in self.wt.current_weeds[0] + self.wt.current_weeds[1]:
+            # area = cv2.contourArea(contour)
+            # if self.invalid_contour(contour, area):
+            #     continue
 
             moments = cv2.moments(contour)
             cX = int(moments["m10"] / moments["m00"])
             cY = int(moments["m01"] / moments["m00"])
-            cv2.circle(frame, (cX, cY), 7, (0, 255, 0), -1)
+
+            # Kalman Filter
+
+            ellipse = cv2.fitEllipse(contour)
+            if i < n_new:
+                cv2.ellipse(frame, ellipse, (0, 255, 0), 2)
+                cv2.circle(frame, (cX, cY), 7, (0, 255, 0), -1)
+            else:
+                cv2.ellipse(frame, ellipse, (255, 0, 0), 2)
+                cv2.circle(frame, (cX, cY), 7, (255, 0, 0), -1)
+
 
             if self.config['spray_line_bottom'] < cY < self.config['spray_line_top']:
-                if area > 100:
-                    number_of_sprays = 1
+                # if area > 100:
+                #     number_of_sprays = 1
 
                 self.update_spray_data(cX, cY, number_of_sprays)
+            
+            i += 1
 
         self.draw_spray_lines(frame)
         return frame

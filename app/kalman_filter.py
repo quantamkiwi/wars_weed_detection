@@ -1,58 +1,93 @@
 import cv2
 import numpy as np
 
-# Define a function to initialize the Kalman Filter
-def initialize_kalman_filter():
-    kf = cv2.KalmanFilter(4, 2)
+class WeedTracker: 
 
-    # State vector [x, y, dx, dy]
-    kf.transitionMatrix = np.array([[1, 0, 1 , 0],
-                                    [0, 1, 0, 1],
-                                    [0, 0, 1, 0],
-                                    [0, 0, 0, 1]], np.float32)
+    def __init__(self):
+        self.fps = 7 # Probably going to need changing. 
+        self.scale_factor = 5
+        self.current_weeds = {0: [], 1: []}
+        self.predicted_weeds = []
+        self.ppf = 15
+        self.min_contour_area = 10
+        self.max_contour_area = 10000
+        self.min_contour_points = 5
 
-    # Measurement matrix [x, y]
-    kf.measurementMatrix = np.array([[1, 0, 0, 0],
-                                     [0, 1, 0, 0]], np.float32)
+    def invalid_contour(self, contour, area):
+        """Checks that the contour area is within a certain range and has more than 5 points."""
+        return area < self.min_contour_area or area > self.max_contour_area or len(contour) < self.min_contour_points
 
-    # Process noise covariance
-    kf.processNoiseCov = np.array([[1, 0, 0, 0],
-                                   [0, 1, 0, 0],
-                                   [0, 0, 1, 0],
-                                   [0, 0, 0, 1]], np.float32) * 0.03
+    def is_contour_encapsulated(self, contour1, contour2):
+        # Check if all points in contour2 are inside contour1
+        # contour2.dtype = np.int32
+        # contour1.dtype = np.int32
+        for point in contour2:
+            # Convert point to tuple
+            pt = (int(point[0][0]), int(point[0][1]))
+            # pointPolygonTest returns:
+            # > 0 if the point is inside the contour
+            # 0 if the point is on the contour
+            # < 0 if the point is outside the contour
+            dist = cv2.pointPolygonTest(contour1, pt, False)
+            if dist < 0:
+                return False
+        return True
 
-    # Measurement noise covariance
-    kf.measurementNoiseCov = np.array([[1, 0],
-                                       [0, 1]], np.float32) * 0.1
+    def known_contour(self, contour): 
+        for known_contour in self.predicted_weeds: 
+            if self.is_contour_encapsulated(known_contour, contour):
+                return 1 
+        return 0
 
-    # Error covariance post
-    kf.errorCovPost = np.eye(4, dtype=np.float32)
+    def process_new_contours(self, contours): 
 
-    return kf
+        self.current_weeds = {0: [], 1: []}
 
-# Example usage with a list of centroids
-def main():
-    # Create a Kalman Filter object
-    kf = initialize_kalman_filter()
+        for contour in contours:
+           
+            area = cv2.contourArea(contour)
 
-    # List of observed centroids
-    centroids = [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6)]
+            if self.invalid_contour(contour, area):
+                continue
 
-    # Initialize the Kalman Filter state with the first centroid
-    kf.statePost = np.array([centroids[0][0], centroids[0][1], 0, 0], np.float32)
+            self.current_weeds[self.known_contour(contour)].append(contour)
+    
+    def predict_new_contours(self): 
+        self.predicted_weeds = []
+        for contour in self.current_weeds[1] + self.current_weeds[0]:
 
-    # Iterate over the centroids
-    for i, centroid in enumerate(centroids):
-        # Predict the next state
-        prediction = kf.predict()
-        predicted_position = (prediction[0], prediction[1])
-        print(f"Predicted position: {predicted_position}")
+            self.predicted_weeds.append(self.next_predicted_location_scaled(contour))
 
-        # Update the Kalman Filter with the current measurement
-        measurement = np.array([[centroid[0]], [centroid[1]]], np.float32)
-        kf.correct(measurement)
-        updated_position = (kf.statePost[0], kf.statePost[1])
-        print(f"Updated position: {updated_position}")
-
-if __name__ == "__main__":
-    main()
+    def next_predicted_location_scaled(self, contour):
+        """
+        A function to predict a spotted weed will be in the next frame.
+        """ 
+        # Convert the contour to a numpy array for easy manipulation
+        contour_array = np.array(contour, dtype=np.float32)
+        
+        # Calculate the centroid of the contour for scaling
+        M = cv2.moments(contour_array)
+        if M['m00'] == 0:
+            return contour  # Prevent division by zero if the contour is degenerate
+        cx = int(M['m10'] / M['m00'])
+        cy = int(M['m01'] / M['m00'])
+        
+        # Shift the contour
+        shifted_contour = contour_array + np.array([0, self.ppf])
+        
+        # Scale the contour around the centroid
+        scaled_contour = (shifted_contour - np.array([cx, cy])) * self.scale_factor + np.array([cx, cy])
+        
+        # Convert back to integer type
+        scaled_contour = scaled_contour.astype(np.int32)
+        print(f'scaled_contour:{scaled_contour}')
+        print(f'original_contour: {contour}')
+        
+        return scaled_contour
+    
+    def set_ppf(self, ppf):
+        """
+        Set the pixels per frame speed. 
+        """
+        self.ppf = ppf
+        
