@@ -123,6 +123,7 @@ class VideoProcessor:
         n_new = len(self.wt.current_weeds[0])
         # print(self.wt.current_weeds)
         i = 0
+        sprayed = []
 
         for contour in self.wt.current_weeds[0] + self.wt.current_weeds[1]:
             # area = cv2.contourArea(contour)
@@ -139,19 +140,28 @@ class VideoProcessor:
             if i < n_new:
                 cv2.ellipse(frame, ellipse, (0, 255, 0), 2)
                 cv2.circle(frame, (cX, cY), 7, (0, 255, 0), -1)
-            else:
-                cv2.ellipse(frame, ellipse, (255, 0, 0), 2)
-                cv2.circle(frame, (cX, cY), 7, (255, 0, 0), -1)
-
+                continue 
 
             if self.config['spray_line_bottom'] < cY < self.config['spray_line_top']:
-                # if area > 100:
-                #     number_of_sprays = 1
+                sprayed.append(contour)
+                if self.wt.sprayed_contour(contour):
+                    # if sprayed
+                    cv2.ellipse(frame, ellipse, (0, 0, 255), 2)
+                    cv2.circle(frame, (cX, cY), 7, (0, 0, 255), -1)
+                    continue 
 
                 self.update_spray_data(cX, cY, number_of_sprays)
+                    
+            cv2.ellipse(frame, ellipse, (255, 0, 0), 2)
+            cv2.circle(frame, (cX, cY), 7, (255, 0, 0), -1)
+            
+
+            # if area > 100:
+            #     number_of_sprays = 1
             
             i += 1
 
+        self.wt.input_sprayed_contours(sprayed)
         self.draw_spray_lines(frame)
         return frame
 
