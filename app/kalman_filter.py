@@ -5,10 +5,10 @@ class WeedTracker:
 
     def __init__(self):
         self.fps = 7 # Probably going to need changing. Not used
-        self.scale_factor = 10
+        self.scale_factor = 2
         self.current_weeds = {0: [], 1: []}
         self.predicted_weeds = []
-        self.ppf = 18
+        self.ppf = 10
         self.min_contour_area = 10
         self.max_contour_area = 10000
         self.min_contour_points = 5
@@ -87,7 +87,7 @@ class WeedTracker:
         cy = int(M['m01'] / M['m00'])
         
         # Shift the contour
-        shifted_contour = contour_array + np.array([0, self.ppf])
+        shifted_contour = contour_array - np.array([0, self.ppf])
         
         # Scale the contour around the centroid
         scaled_contour = (shifted_contour - np.array([cx, cy])) * self.scale_factor + np.array([cx, cy])

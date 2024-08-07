@@ -118,17 +118,22 @@ class VideoProcessor:
         number_of_sprays = 0
 
         self.wt.process_new_contours(contours)
+        # Show the predicted weed location from the previous iteration. 
+        for contour in self.wt.predicted_weeds:
+            ellipse = cv2.fitEllipse(contour)
+            cv2.ellipse(frame, ellipse, (255, 255, 0), 2)
         self.wt.predict_new_contours()
 
         n_new = len(self.wt.current_weeds[0])
         # print(self.wt.current_weeds)
-        i = 0
+        i = -1
         sprayed = []
 
         for contour in self.wt.current_weeds[0] + self.wt.current_weeds[1]:
             # area = cv2.contourArea(contour)
             # if self.invalid_contour(contour, area):
             #     continue
+            i += 1 
 
             moments = cv2.moments(contour)
             cX = int(moments["m10"] / moments["m00"])
@@ -158,8 +163,7 @@ class VideoProcessor:
 
             # if area > 100:
             #     number_of_sprays = 1
-            
-            i += 1
+
 
         self.wt.input_sprayed_contours(sprayed)
         self.draw_spray_lines(frame)
