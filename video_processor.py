@@ -21,6 +21,11 @@ WEED_STATUS_PUB = "/weed_status"
 VIDEO_PUB = "/weed_video_frames"
 WEED_THRESHOLD = 8
 
+########NEW
+OBJECT_PUB = "/object"
+detected_pub = rospy.Publisher(OBJECT_PUB, Bool, queue_size=1)
+############
+
 rospy.init_node('Video_to_Xcord', anonymous = True)
 rate = rospy.Rate(30)
 weed_cam_pub = rospy.Publisher(WEED_STATUS_PUB, Int16, queue_size=1)
@@ -70,6 +75,18 @@ def toggle_identification(enabled):
         spray_system_enable = True
     else:
         spray_system_enable = False
+
+
+#########NEW
+def Write_object(detected_pub, result):
+    # Publisher function to publish on the webpage whether an object is detected or not
+    result_pub = Bool()
+    result_pub.data = result
+    try:
+        detected_pub.publish(result_pub)
+    except:
+        print("PUBLISHING ERROR")
+##########
 
 # -----------------------------------------------------------------------
 
@@ -128,8 +145,8 @@ def Main():
     screen_height = top_crop - bottom_crop
     
     # Sprayer sections
-    spray_line_bottom = 20
-    spray_line_top = 130
+    spray_line_bottom = 200 #20
+    spray_line_top = 210 #130
 
     send_slow_speed = 0
     watchdog_frames = 0
@@ -240,44 +257,12 @@ def Main():
                 cY = int(moments["m01"] / moments["m00"])
                 cv2.circle(frame, (cX, cY), 7, (0, 255, 0), -1) # Draw circles idenitified by moments
 
+#############################################################
                 if spray_line_bottom  < cY < spray_line_top:
-                    if area < 300:
-                        number_of_sprays = 1
-                    elif 300 <= area < 500:
-                        number_of_sprays = 1
-                    elif 500 <= area < 1000:
-                        number_of_sprays = 1
-                    elif 1000 <= area < 5000:
-                        number_of_sprays = 1 #2
-                    elif 5000 <= area < 8000:
-                        number_of_sprays = 1 #3
-                    else:
-                        number_of_sprays = 1 #4
-                    if cX < 240:
-                        if abs(cX_old_left - cX) > WEED_THRESHOLD:
-                            print("cX: {}, cX_old_left:{}".format(cX,cX_old_left))
-                            cX_old_left = cX
-                            xcord_deg_left = -math.degrees(math.atan(((cX-x_centre_left)*a)/150))
-                            xcord_deg_right = 0
-                            number_of_sprays_left = number_of_sprays
-                            number_of_sprays_right = 0
-                    else: 
-                        if abs(cX_old_right - cX) > WEED_THRESHOLD:
-                            print("cX: {}, cX_old_right:{}".format(cX,cX_old_right))
-                            cX_old_right = cX
-                            xcord_deg_right = -math.degrees(math.atan(((cX-x_centre_right-240)*a)/150))
-                            xcord_deg_left = 0
-                            number_of_sprays_right = number_of_sprays
-                            number_of_sprays_left = 0
-                            
-                    input_array = [xcord_deg_left,0,number_of_sprays_left,xcord_deg_right,0,number_of_sprays_right]
+                    obs_detected = True
+                    Write_object(detected_pub, obs_detected)
+#############################################################
 
-                    if number_of_sprays_left > 0 or number_of_sprays_right > 0:
-                        sprayer_msg.data = input_array
-                        sprayer_input.publish(sprayer_msg)
-                        print("Sending this: ", input_array)
-                        print("Area of contour: ", area)
-            
             cv2.line(frame, (0, spray_line_top), (screen_width, spray_line_top), (0, 255, 0), 2)
             cv2.line(frame, (0, spray_line_bottom), (screen_width, spray_line_bottom), (0, 0, 255), 2)
 
